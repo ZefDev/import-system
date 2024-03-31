@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\ImportProductsCSV;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,3 +17,4 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/test', [ImportProductsCSV::class, 'handle']);
