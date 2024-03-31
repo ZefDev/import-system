@@ -8,15 +8,17 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use League\Csv\Reader;
 
-class DataImporter implements DataImporterInterface
+class DataImporter
 {
     private Reader $reader;
     private array $originalHeaders = ['Product Code', 'Product Name', 'Product Description', 'Stock', 'Cost in GBP', 'Discontinued'];
     private string $path;
     protected array $data;
+    private float $exchangeRate; // Добавляем свойство для хранения курса валюты
 
-    public function __construct(string $path) {
+    public function __construct(string $path, float $exchangeRate) {
         $this->path = $path;
+        $this->exchangeRate = $exchangeRate; // Сохраняем переданный курс валюты
     }
     // открываем файл и устанавливаем ридер
     public function openFile()
@@ -36,14 +38,21 @@ class DataImporter implements DataImporterInterface
         }
     }
 
-    public function filterProducts()
+    public function filterProducts(): array
     {
         $listReport = [];
         $listForDB = [];
 
         foreach ($this->data as $item) {
             if ($this->shouldBeDiscontinued($item)) {
-                $item['Discontinued'] = Carbon::now();
+                $item['Discontinued'] = Carbon::now()->toDateTimeString(); // или NOW() для MySQL
+            } else {
+                $item['Discontinued'] = null; // Установка значения NULL, если товар не снят с производства
+            }
+            $item['Stock'] = intval($item['Stock']);
+            // Добавляем проверку на пустую строку для intProductStock
+            if ($this->isEmpty($item['Stock'])) {
+                $item['Stock'] = 0; // Устанавливаем значение NULL, если строка пустая
             }
 
             if ($this->shouldExclude($item)) {
@@ -65,12 +74,12 @@ class DataImporter implements DataImporterInterface
 
     protected function shouldExclude($item)
     {
-        return $item['Cost in GBP'] < 5 && $item['Stock'] < 10;
+        return (floatval($item['Cost in GBP']) / $this->exchangeRate) < 5 && $item['Stock'] < 10;
     }
 
     protected function shouldExcludeHighValue($item)
     {
-        return $item['Cost in GBP'] > 1000;
+        return (floatval($item['Cost in GBP']) / $this->exchangeRate) > 1000;
     }
 
     function isCSVFormattedCorrectly($filePath)
@@ -106,16 +115,16 @@ class DataImporter implements DataImporterInterface
         return $isValid;
     }
     // получение данных из файла
-    public function readDataFromFile(): array
+    public function readDataFromFile(): void
     {
         $list = array();
         $this->reader->setHeaderOffset(0);
         $records = $this->reader->getRecords();
-        var_dump($records); die();
+
         foreach ($records as $offset => $record) {
-            $list[] = $record;
+            $list[] = $this->clean($record);
         }
-        return $list;
+        $this->data = $list;
     }
 
     public function validateData(): void
@@ -123,14 +132,21 @@ class DataImporter implements DataImporterInterface
         
     }
 
-    public function clean($record)
+    protected function clean($record)
     {
         foreach ($record as $key => $value) {
-            $value = utf8_encode($value);
+            // Удаляем символ "$" из строки, если он есть
+            $value = str_replace('$', '', $value);
+            //$value = utf8_encode($value);
             $value = trim($value);
             $value = $value === '' ? null : $value;
             $record[$key] = $value;
         }
         return $record;
+    }
+
+    protected function isEmpty($value)
+    {
+        return $value === '' || $value === null; // Проверяем на пустую строку или NULL
     }
 }

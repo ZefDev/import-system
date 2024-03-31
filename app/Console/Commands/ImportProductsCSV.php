@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Helpers\DataImporter;
+use App\Services\CurrencyService;
+use App\Services\ParserCSVService;
 use App\Services\ProductDataService;
 use Illuminate\Console\Command;
 
@@ -39,13 +41,15 @@ class ImportProductsCSV extends Command
      */
     public function handle()
     {
-        $dataImporter = new DataImporter('E:/Work/xampp2/htdocs/import-system/stock.csv');
+        $exchangeRate = CurrencyService::getPriceCurrency('GBP');
+        $dataImporter = new DataImporter('E:/Work/xampp2/htdocs/import-system/stock.csv', $exchangeRate);
         $dataImporter->openFile();
         $dataImporter->validateHeaders();
-        $data = $dataImporter->readDataFromFile();
-        
-        $service = new ProductDataService();
-        $service->insertAll($data);
+        $dataImporter->readDataFromFile();
+        [$listReport, $listForDB] = $dataImporter->filterProducts();
+
+        $product = new ProductDataService();
+        $product->insertAll($listForDB);
 
         return 0;
     }
