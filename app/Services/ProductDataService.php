@@ -3,14 +3,27 @@
 namespace App\Services;
 
 use App\Models\ProductData;
+use App\Validators\ProductValidator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ProductDataService
 {
 
     public function insertAll(array $data) : void
     {
-        ProductData::insert($this->preporationData($data));
+        $data = $this->preporationData($data);
+        // Проверяем валидность данных
+        $validator = Validator::make($data, (new ProductValidator)->rules());
+        
+        if (!$validator->fails()) {
+            ProductData::insert($data);
+        }
+        else{
+            $errors = $validator->errors()->all();
+            Log::error('Validation errors importing products: ' . implode(', ', $errors));
+        }
     }
 
     public function preporationData(array $data) : array
@@ -18,10 +31,10 @@ class ProductDataService
         $fieldMappings = $this->getFileMappings();
         $newData = [];
         $addedProductCodes = []; // Массив для хранения уже добавленных кодов товаров
-    
+       
         foreach ($data as $item) {
             // Проверяем, присутствует ли код товара в списке уже добавленных кодов
-            if (!in_array($item['Product Code'], $addedProductCodes)) {
+            if (isset($item['Product Code']) && !in_array($item['Product Code'], $addedProductCodes)) {
                 // Если код товара еще не добавлен, добавляем его в массив данных
                 $newItem = [];
     
@@ -45,24 +58,6 @@ class ProductDataService
         }
     
         return $newData;
-        // $fieldMappings = $this->getFileMappings();
-        // $newData = array_map(function ($item) use ($fieldMappings) {
-        //     // Создаем новый элемент массива
-        //     $newItem = [];
-        //     // Создаем массив с новыми ключами, используя маппинг
-        //     $newKeys = array_map(function ($key) use ($fieldMappings) {
-        //         return $fieldMappings[$key];
-        //     }, array_keys($item));
-        //     // Заполняем новый элемент массива соответствующими ключами и значениями
-        //     foreach ($newKeys as $index => $newKey) {
-        //         $newItem[$newKey] = $item[array_keys($item)[$index]];
-        //     }
-        //     $newItem = $this->addDatesInProduct($newItem);
-
-        //     return $newItem;
-        // }, $data);
-
-        // return $newData;
     }
 
     public function getFileMappings() : array

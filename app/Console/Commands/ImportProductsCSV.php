@@ -2,7 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Helpers\CSVImport\CSVAnalyzer;
+use App\Helpers\CSVImport\CSVReportGenerator;
 use App\Helpers\DataImporter;
+use App\Helpers\Product\DiscontinuedProductFilter;
+use App\Helpers\Product\HighValueProductFilter;
+use App\Helpers\Product\LowStockProductFilter;
+use App\Helpers\Product\ProductFilter;
+use App\Services\CSVImpportService;
 use App\Services\CurrencyService;
 use App\Services\ParserCSVService;
 use App\Services\ProductDataService;
@@ -15,14 +22,14 @@ class ImportProductsCSV extends Command
      *
      * @var string
      */
-    protected $signature = 'command:name';
+    protected $signature = 'import:products {file}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Import products from csv';
 
     /**
      * Create a new command instance.
@@ -41,15 +48,10 @@ class ImportProductsCSV extends Command
      */
     public function handle()
     {
-        $exchangeRate = CurrencyService::getPriceCurrency('GBP');
-        $dataImporter = new DataImporter('E:/Work/xampp2/htdocs/import-system/stock.csv', $exchangeRate);
-        $dataImporter->openFile();
-        $dataImporter->validateHeaders();
-        $dataImporter->readDataFromFile();
-        [$listReport, $listForDB] = $dataImporter->filterProducts();
-
-        $product = new ProductDataService();
-        $product->insertAll($listForDB);
+        //$filePath = $this->argument('file');
+        $filePath = 'E:/Work/xampp2/htdocs/import-system/storage/app/test.csv';
+        $csvImport = new CSVImpportService();
+        echo $csvImport->import($filePath, true);
 
         return 0;
     }
