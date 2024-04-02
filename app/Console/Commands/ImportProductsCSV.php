@@ -22,7 +22,7 @@ class ImportProductsCSV extends Command
      *
      * @var string
      */
-    protected $signature = 'import:products {file}';
+    protected $signature = 'import:products {file} {--mode=}';
 
     /**
      * The console command description.
