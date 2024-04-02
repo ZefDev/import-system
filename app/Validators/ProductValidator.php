@@ -14,6 +14,8 @@ class ProductValidator
             '*.strProductCode' => 'required|string|max:10|unique:tbl_product_data',
             '*.dtmAdded' => 'nullable|date',
             '*.dtmDiscontinued' => 'nullable|date',
+            '*.intProductStock' => 'required|numeric',
+            '*.decCostInGbp' => 'required|numeric',
         ];
     }
 }

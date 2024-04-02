@@ -48,10 +48,12 @@ class ImportProductsCSV extends Command
      */
     public function handle()
     {
-        //$filePath = $this->argument('file');
-        $filePath = 'E:/Work/xampp2/htdocs/import-system/storage/app/test.csv';
+        $filePath = $this->argument('file');
+        $mode = $this->option('mode');
+        $mode = $mode === 'test' ? false : true;
+        //$filePath = 'E:/Work/xampp2/htdocs/import-system/storage/app/test.csv';
         $csvImport = new CSVImpportService();
-        echo $csvImport->import($filePath, true);
+        echo $csvImport->import($filePath, $mode);
 
         return 0;
     }

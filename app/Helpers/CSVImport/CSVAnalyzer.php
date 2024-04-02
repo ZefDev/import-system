@@ -5,6 +5,7 @@ namespace App\Helpers\CSVImport;
 use App\Helpers\Product\ProductFilter;
 use Exception;
 use Illuminate\Support\Facades\Log;
+use League\Csv\CharsetConverter;
 use League\Csv\Reader;
 use SplFileObject;
 
@@ -66,15 +67,16 @@ class CSVAnalyzer
     }
 
     // открываем файл и устанавливаем ридер
-    private function openFile()
+    private function openFile(): void
     {
         $reader = Reader::createFromPath($this->path, 'r');
         $this->reader = $reader;
     }
 
-    public function clean($record)
+    public function clean(array $record): array
     {
         foreach ($record as $key => $value) {
+            $value = iconv(mb_detect_encoding($value, mb_detect_order(), true), 'UTF-8', $value);
             $value = str_replace('$', '', $value);
             $value = trim($value);
             $value = $value === '' ? null : $value;
@@ -83,8 +85,26 @@ class CSVAnalyzer
         return $record;
     }
 
-    public function setPath(string $path)
+    public function setPath(string $path): void
     {
         $this->path = $path;
+    }
+
+    public function getPath(): string
+    {
+        return $this->path;
+    }
+
+    // Метод для преобразования содержимого CSV файла в UTF-8
+    private function convertToUtf8(string $filePath): void
+    {
+        $content = file_get_contents($filePath);
+        $encoding = mb_detect_encoding($content, mb_detect_order(), true);
+
+        if ($encoding && strtoupper($encoding) !== 'UTF-8') {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+            // Записываем преобразованный CSV обратно в файл
+            file_put_contents($filePath, $content);
+        }
     }
 }
