@@ -2,63 +2,62 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class ImportProductCsvTest extends TestCase
 {
     /**
-     * A basic feature test example.
+     * Test CSV parsing.
      *
      * @return void
      */
-    public function test_example()
-    {
-        $response = $this->get('/');
-
-        $response->assertStatus(200);
-    }
-
     public function testCsvParsing()
     {
-        // Заголовки CSV файла
+        // CSV file headers
         $headers = 'Product Code,Product Name,Product Description,Stock,Cost in GBP,Discontinued';
 
-        // Данные CSV файла
+        // CSV file data
         $csvData = [
-            ['P0090', 'CD Bundle', 'Lots of fun', '10', '10', 'yes'],
+            ['P0095', 'CD Bundle', 'Lots of fun', '10', '10', 'yes'],
             ['P0091', 'CD Bundle', 'Lots of 2', '10', '10', ''],
             ['P0092', 'CD Bundle', 'Lots of 3', '6', '10', 'yes'],
         ];
 
-        // Создаем временный тестовый CSV файл
+        // Create a temporary test CSV file
         $csvFileName = 'test.csv';
         $csvFilePath = $this->createCsvFile($csvFileName, $headers, $csvData);
 
-        // Создаем UploadedFile из временного файла
+        // Create UploadedFile from the temporary file
         $uploadedFile = new UploadedFile($csvFilePath, $csvFileName);
 
-        // Загружаем CSV файл и вызываем вашу консольную команду
+        // Upload the CSV file and call your console command
         $this->artisan('import:products', [
             'file' => $uploadedFile->getPathname(),
         ])->assertExitCode(0);
 
-        // Проверяем, что определенные данные были успешно сохранены в базе данных
+        // Check that specific data was successfully saved to the database
         $this->assertDatabaseHas('tbl_product_data', [
-            'strProductCode' => 'P0090',
+            'strProductCode' => 'P0095',
         ]);
     }
 
+    /**
+     * Create a CSV file.
+     *
+     * @param string $fileName
+     * @param string $headers
+     * @param array $data
+     * @return string
+     */
     private function createCsvFile($fileName, $headers, $data)
     {
         $csvFilePath = storage_path('app/' . $fileName);
-        
-        // Записываем заголовки CSV
+
+        // Write CSV headers
         file_put_contents($csvFilePath, $headers . PHP_EOL);
 
-        // Записываем данные CSV
+        // Write CSV data
         foreach ($data as $row) {
             file_put_contents($csvFilePath, implode(',', $row) . PHP_EOL, FILE_APPEND);
         }

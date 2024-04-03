@@ -3,49 +3,54 @@
 namespace App\Helpers\CSVImport;
 
 use App\Helpers\Product\ProductFilter;
-use Exception;
-use Illuminate\Support\Facades\Log;
-use League\Csv\CharsetConverter;
-use League\Csv\Reader;
-use SplFileObject;
+use App\Interfaces\FileAnalyzerInterface;
+use App\Validators\ProductValidator;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Validator;
 
-class CSVAnalyzer
+class CSVAnalyzer implements FileAnalyzerInterface
 {
-    private Reader $reader;
-    private string $path;
-    protected array $data;
     protected ProductFilter $productFilter;
+    protected array $rulesForValidation;
 
-    public function __construct(string $path, ProductFilter $productFilter) {
-        $this->path = $path;
+    /**
+     * Constructor.
+     *
+     * @param ProductFilter $productFilter The product filter instance
+     */
+    public function __construct(ProductFilter $productFilter, array $rulesForValidation)
+    {
         $this->productFilter = $productFilter;
+        $this->rulesForValidation = $rulesForValidation;
     }
 
-    public function analyze(): array
+    /**
+     * Analyze the CSV data.
+     *
+     * @param array $data The CSV data
+     * @return array The analyzed data
+     */
+    public function analyze(array $data): array
     {
         $csvData = array();
-        $totalRows = 0;
         $list = array();
         $listError = array();
-
-        $this->openFile($this->path);
         
-        $this->reader->setHeaderOffset(0);
-        $records = $this->reader->getRecords();
- 
-        foreach ($records as $offset => $record) {
-            $totalRows++;
-            if ($this->isValidRow($record)) {
-                $list[] = $this->clean($record);
+        // Iterate through each record in the CSV data
+        foreach ($data as $record) {
+            // Check if the row is valid
+            if ($this->isValidRow($record) && !$this->isCSVValid($record)) {
+                $list[] = $this->clean($record); // Add clean record to list
             } else {
-                $listError[] = $this->clean($record);
+                $listError[] = $this->clean($record); // Add clean record with errors to list
             }
         }
-
-        // Фильтруем продукты
+        
+        // Filter the products
         [$listReport, $listForDB] = $this->productFilter->filterProducts($list);
 
-        $csvData['total'] = $totalRows;
+        // Prepare the analyzed data
+        $csvData['total'] = count($data);
         $csvData['successful'] = count($listForDB);
         $csvData['skipped'] = count($listReport) + count($listError);
         $csvData['listReport'] = $listReport;
@@ -55,9 +60,15 @@ class CSVAnalyzer
         return $csvData;
     }
 
+    /**
+     * Check if the row is valid.
+     *
+     * @param array $row The row data
+     * @return bool True if the row is valid, false otherwise
+     */
     private function isValidRow($row): bool
     {
-        // Проверяем наличие null значений в элементах массива
+        // Check for null values in the row
         foreach ($row as $value) {
             if ($value === null) {
                 return false;
@@ -66,45 +77,36 @@ class CSVAnalyzer
         return true;
     }
 
-    // открываем файл и устанавливаем ридер
-    private function openFile(): void
-    {
-        $reader = Reader::createFromPath($this->path, 'r');
-        $this->reader = $reader;
-    }
-
+    /**
+     * Clean the record.
+     *
+     * @param array $record The record data
+     * @return array The cleaned record
+     */
     public function clean(array $record): array
     {
+        // Iterate through each key-value pair in the record
         foreach ($record as $key => $value) {
+            // Convert encoding to UTF-8
             $value = iconv(mb_detect_encoding($value, mb_detect_order(), true), 'UTF-8', $value);
-            $value = str_replace('$', '', $value);
+            // Trim whitespace
             $value = trim($value);
+            // Convert empty strings to null
             $value = $value === '' ? null : $value;
+            // Update the record value
             $record[$key] = $value;
         }
         return $record;
     }
 
-    public function setPath(string $path): void
+     /**
+     * Check if the record fails validation based on CSV rules.
+     *
+     * @param array $record The record to be validated
+     * @return bool Returns true if validation fails, otherwise false
+     */
+    private function isCSVValid(array $record): bool
     {
-        $this->path = $path;
-    }
-
-    public function getPath(): string
-    {
-        return $this->path;
-    }
-
-    // Метод для преобразования содержимого CSV файла в UTF-8
-    private function convertToUtf8(string $filePath): void
-    {
-        $content = file_get_contents($filePath);
-        $encoding = mb_detect_encoding($content, mb_detect_order(), true);
-
-        if ($encoding && strtoupper($encoding) !== 'UTF-8') {
-            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
-            // Записываем преобразованный CSV обратно в файл
-            file_put_contents($filePath, $content);
-        }
+        return Validator::make($record, $this->rulesForValidation)->fails();
     }
 }

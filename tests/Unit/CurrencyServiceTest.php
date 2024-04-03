@@ -15,27 +15,27 @@ class CurrencyServiceTest extends TestCase
      */
     public function testGetPriceCurrency()
     {
-        // Устанавливаем заглушку для Http клиента
+        // Set up a mock for the Http client
         Http::fake([
             '*' => Http::response([
                 'rates' => [
-                    'USD' => 1.2, // Предположим, что курс 1 USD = 1.2
-                    'EUR' => 0.8, // Предположим, что курс 1 EUR = 0.8
+                    'USD' => 1.2, // Assume 1 USD = 1.2
+                    'EUR' => 0.8, // Assume 1 EUR = 0.8
                 ]
             ], 200),
         ]);
 
-        // Проверяем, что метод getPriceCurrency возвращает правильное значение для заданной валюты
+        // Check that getPriceCurrency method returns the correct value for the given currency
         $usdPrice = CurrencyService::getPriceCurrency('USD');
         $this->assertEquals(1.2, $usdPrice);
 
-        // Проверяем, что метод работает правильно для другой валюты
+        // Check that the method works correctly for another currency
         $eurPrice = CurrencyService::getPriceCurrency('EUR');
         $this->assertEquals(0.8, $eurPrice);
 
-        // Проверяем, что метод возвращает 1 в случае ошибки или если валюта отсутствует в ответе
+        // Check that the method returns 1 in case of error or if the currency is missing from the response
         Http::fake([
-            '*' => Http::response([], 404), // Пустой ответ с кодом 404
+            '*' => Http::response([], 404), // Empty response with status code 404
         ]);
         $unknownCurrencyPrice = CurrencyService::getPriceCurrency('UNKNOWN');
         $this->assertEquals(1, $unknownCurrencyPrice);
