@@ -10,42 +10,34 @@ use PHPUnit\Framework\TestCase;
 
 class ProductFilterTest extends TestCase
 {
+    /**
+     * Test filterProducts method.
+     *
+     * @return void
+     */
     public function testFilterProducts()
     {
+        // Rules for filtering
         $rules = [
             new LowStockProductFilter(1.0),
             new HighValueProductFilter(1.0),
         ];
 
-        // Входные данные
+        // Input data
         $data = [
-            ['Product Code' => 'P001', 'Discontinued' => 'yes', 'Stock' => '10', 'Cost in GBP' => '10'],
-            ['Product Code' => 'P002', 'Discontinued' => '', 'Stock' => '1', 'Cost in GBP' => '1'],
-            ['Product Code' => 'P003', 'Discontinued' => 'yes', 'Stock' => '8', 'Cost in GBP' => '8'],
+            ['strProductCode' => 'P001', 'dtmDiscontinued' => 'yes', 'intProductStock' => '10', 'decCostInGbp' => '10'],
+            ['strProductCode' => 'P002', 'dtmDiscontinued' => '', 'intProductStock' => '1', 'decCostInGbp' => '1'],
+            ['strProductCode' => 'P003', 'dtmDiscontinued' => 'yes', 'intProductStock' => '8', 'decCostInGbp' => '8'],
         ];
 
-        // Создаем экземпляр класса ProductFilter
+        // Create an instance of ProductFilter class
         $filter = new ProductFilter(1.0, $rules);
 
-        // Вызываем метод filterProducts()
+        // Call the filterProducts method
         [$listReport, $listForDB] = $filter->filterProducts($data);
 
-        // Проверяем результаты фильтрации
-        $this->assertEquals(1, count($listReport)); // Ожидаем только одну запись в отчете
-        $this->assertEquals(2, count($listForDB)); // Ожидаем две записи для базы данных
-    }
-
-    public function testGetDiscontinuedValue()
-    {
-        // Создаем экземпляр класса ProductFilter
-        $filter = new ProductFilter(1.0, []);
-
-        // Проверяем, что метод возвращает текущую дату и время для "yes"
-        $this->assertEquals(Carbon::now()->toDateTimeString(), $filter->getDiscontinuedValue('yes'));
-
-        // Проверяем, что метод возвращает null для любого другого значения
-        $this->assertNull($filter->getDiscontinuedValue('no'));
-        $this->assertNull($filter->getDiscontinuedValue(null));
-        $this->assertNull($filter->getDiscontinuedValue(''));
+        // Check the filtering results
+        $this->assertEquals(1, count($listReport)); // Expecting only one record in the report
+        $this->assertEquals(2, count($listForDB)); // Expecting two records for the database
     }
 }

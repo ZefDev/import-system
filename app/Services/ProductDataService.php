@@ -2,84 +2,101 @@
 
 namespace App\Services;
 
+use App\Mapping\ProductMapping;
 use App\Models\ProductData;
 use App\Validators\ProductValidator;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class ProductDataService
 {
 
-    public function insertAll(array $data) : void
+    /**
+     * Insert all validated data into the database.
+     *
+     * @param array $data The data to be inserted
+     * @return void
+     */
+    public function insertAll(array $data): void
     {
-        $data = $this->preporationData($data);
-        // Проверяем валидность данных
-        $validator = Validator::make($data, (new ProductValidator)->rules());
-        
-        if (!$validator->fails()) {
-            ProductData::insert($data);
-        }
-        else{
-            $errors = $validator->errors()->all();
-            Log::error('Validation errors importing products: ' . implode(', ', $errors));
+        // Prepare and validate the data
+        $data = $this->preparationData($data);
+        $validatedData = $this->validateData($data);
+
+        // If there is valid data, insert it into the database
+        if (!empty($validatedData)) {
+            ProductData::insert($validatedData);
         }
     }
 
-    public function preporationData(array $data) : array
+    /**
+     * Prepare the data for insertion.
+     *
+     * @param array $data The data to be prepared
+     * @return array The prepared data
+     */
+    public function preparationData(array $data): array
     {
-        $fieldMappings = $this->getFileMappings();
         $newData = [];
-        $addedProductCodes = []; // Массив для хранения уже добавленных кодов товаров
-       
+        // Iterate through the data and prepare it for insertion
         foreach ($data as $item) {
-            // Проверяем, присутствует ли код товара в списке уже добавленных кодов
-            if (isset($item['Product Code']) && !in_array($item['Product Code'], $addedProductCodes)) {
-                // Если код товара еще не добавлен, добавляем его в массив данных
-                $newItem = [];
-    
-                // Создаем массив с новыми ключами, используя маппинг
-                $newKeys = array_map(function ($key) use ($fieldMappings) {
-                    return $fieldMappings[$key];
-                }, array_keys($item));
-    
-                // Заполняем новый элемент массива соответствующими ключами и значениями
-                foreach ($newKeys as $index => $newKey) {
-                    $newItem[$newKey] = $item[array_keys($item)[$index]];
-                }
-    
-                // Добавляем новый элемент в массив данных
-                $newItem = $this->addDatesInProduct($newItem);
-                $newData[] = $newItem;
-    
-                // Добавляем код товара в список уже добавленных кодов
-                $addedProductCodes[] = $item['Product Code'];
-            }
+            // Set discontinued date if applicable
+            $item['dtmDiscontinued'] = $this->getDiscontinuedValue($item['dtmDiscontinued']);
+            // Convert product stock to integer
+            $item['intProductStock'] = intval($item['intProductStock']);
+            // Add current dates in the product item
+            $item = $this->addDatesInProduct($item);
+            $newData[] = $item;
         }
-    
+
         return $newData;
     }
 
-    public function getFileMappings() : array
-    {
-        // Определение соответствий полей CSV и полей базы данных
-        $fieldMappings = [
-            'Product Code' => 'strProductCode',
-            'Product Name' => 'strProductName',
-            'Product Description' => 'strProductDesc',
-            'Stock' => 'intProductStock',
-            'Cost in GBP' => 'decCostInGbp',
-            'Discontinued' => 'dtmDiscontinued',
-        ];
-        return $fieldMappings;
-    }
-
-    public function addDatesInProduct(array $item) : array
+    /**
+     * Add current dates to the product item.
+     *
+     * @param array $item The product item
+     * @return array The product item with added dates
+     */
+    public function addDatesInProduct(array $item): array
     {
         $timestamp = Carbon::now();
         $item['stmTimestamp'] = $timestamp;
         $item['dtmAdded'] = $timestamp->format('Y-m-d H:i:s');
         return $item;
+    }
+
+    /**
+     * Get the discontinued value based on the input.
+     *
+     * @param mixed $discontinued The discontinued value
+     * @return string|null The discontinued value as a string or null
+     */
+    public function getDiscontinuedValue($discontinued): ?string
+    {
+        return $discontinued === 'yes' ? Carbon::now()->toDateTimeString() : null;
+    }
+
+    /**
+     * Validate the data.
+     *
+     * @param array $data The data to be validated
+     * @return array The validated data
+     */
+    protected function validateData(array $data): array
+    {
+        $collection = new Collection($data);
+
+        // Reject invalid records using the product validator
+        $validRecords = $collection->reject(function ($record) {
+            return Validator::make($record, (new ProductValidator)->rules())->fails();
+        });
+
+        // Convert the validated records to an array and return them
+        $filteredData = $validRecords->toArray();
+        return $filteredData;
     }
 
 }

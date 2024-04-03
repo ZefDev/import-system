@@ -2,17 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Helpers\CSVImport\CSVAnalyzer;
-use App\Helpers\CSVImport\CSVReportGenerator;
-use App\Helpers\DataImporter;
-use App\Helpers\Product\DiscontinuedProductFilter;
-use App\Helpers\Product\HighValueProductFilter;
-use App\Helpers\Product\LowStockProductFilter;
-use App\Helpers\Product\ProductFilter;
-use App\Services\CSVImpportService;
-use App\Services\CurrencyService;
-use App\Services\ParserCSVService;
-use App\Services\ProductDataService;
+use App\Services\CSVImportService;
 use Illuminate\Console\Command;
 
 class ImportProductsCSV extends Command
@@ -48,11 +38,11 @@ class ImportProductsCSV extends Command
      */
     public function handle()
     {
+
         $filePath = $this->argument('file');
         $mode = $this->option('mode');
         $mode = $mode === 'test' ? false : true;
-        //$filePath = 'E:/Work/xampp2/htdocs/import-system/storage/app/test.csv';
-        $csvImport = new CSVImpportService();
+        $csvImport = new CSVImportService();
         echo $csvImport->import($filePath, $mode);
 
         return 0;

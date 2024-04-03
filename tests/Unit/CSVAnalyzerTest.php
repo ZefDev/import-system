@@ -3,18 +3,24 @@
 namespace Tests\Unit;
 
 use App\Helpers\CSVImport\CSVAnalyzer;
+use App\Helpers\CSVImport\CSVReader;
 use App\Helpers\Product\HighValueProductFilter;
 use App\Helpers\Product\LowStockProductFilter;
 use App\Helpers\Product\ProductFilter;
+use App\Mapping\ProductMapping;
 use App\Services\CurrencyService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
+use App\Validators\ProductValidator;
 use Tests\TestCase;
 
 class CSVAnalyzerTest extends TestCase
 {
     protected CSVAnalyzer $csvAnalyzer;
-    // Подготовка объектов для тестирования
+    
+    /**
+     * Prepare objects for testing.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,75 +31,74 @@ class CSVAnalyzerTest extends TestCase
             new HighValueProductFilter($exchangeRate),
         ]);
         
-        $this->csvAnalyzer = new CSVAnalyzer('test.csv', $productFilter);
+        $this->csvAnalyzer = new CSVAnalyzer($productFilter, (new ProductValidator)->rulesForCSV());
     }
 
-    // Проверка обработки правильных и неправильных записей CSV
+    /**
+     * Test CSV parsing.
+     *
+     * @return void
+     */
     public function testCsvParsing()
     {
-        // Создаем временный тестовый CSV файл с различными записями
-        // Допустим, этот код уже реализован в другом методе или классе
-        // Предположим, что у нас есть заголовки и данные для тестового файла
+        // Create a temporary test CSV file with various records
+        // Assume this code is already implemented in another method or class
+        // Assume we have headers and data for the test file
         $headers = 'Product Code,Product Name,Product Description,Stock,Cost in GBP,Discontinued';
         $csvData = [
             ['P0090', 'CD Bundle', 'Lots of fun', '10', '10', 'yes'],
             ['P0091', 'CD Bundle', 'Lots of 2', '10', '10', ''],
             ['P0092', 'CD Bundle', 'Lots of 3', '6', '10', 'yes'],
-            // Добавьте другие записи, включая неправильные, если нужно
+            // Add other records including incorrect ones if needed
         ];
-
-        // Создаем временный CSV файл
+        // Create a temporary CSV file
         $csvFilePath = $this->createCsvFile('test.csv', $headers, $csvData);
+        $csvReader = new CSVReader($csvFilePath, (new ProductMapping)->getMapping());
 
-        // Подменяем путь к файлу на временный путь в объекте CSVAnalyzer
-        $this->csvAnalyzer->setPath($csvFilePath);
-
-        // Вызываем метод analyze()
-        $result = $this->csvAnalyzer->analyze();
-        // Проверяем ожидаемые результаты, например:
-        $this->assertEquals(3, $result['total']); // Общее количество записей
-        $this->assertEquals(3, $result['successful']); // Количество успешно обработанных записей
-        $this->assertEquals(0, $result['skipped']); // Количество пропущенных записей
-        // Проверьте другие ожидаемые результаты в соответствии с вашей логикой
+        // Call the analyze() method
+        $result = $this->csvAnalyzer->analyze($csvReader->readFile());
+        // Check expected results, for example:
+        $this->assertEquals(3, $result['total']); // Total number of records
+        $this->assertEquals(3, $result['successful']); // Number of successfully processed records
+        $this->assertEquals(0, $result['skipped']); // Number of skipped records
+        // Check other expected results according to your logic
     }
 
-    // Проверка обработки исключений
-    public function testExceptionHandling()
-    {
-        // Подготавливаем объект CSVAnalyzer с некорректным путем к файлу
-        $this->csvAnalyzer->setPath('nonexistent.csv');
-
-        // Вызываем метод analyze() и ожидаем исключение
-        $this->expectException(\Exception::class);
-
-        // Ожидаем, что метод analyze() выбросит исключение
-        $this->csvAnalyzer->analyze();
-    }
-
-    // Проверка очистки данных
+    /**
+     * Test data cleaning method.
+     *
+     * @return void
+     */
     public function testCleanMethod()
     {
-        // Создаем массив данных для очистки
-        $record = ['   P0090  ', '$10', '  Description  ', null];
+        // Create a data array to clean
+        $record = ['   P0090  ', '10', '  Description  ', null];
 
-        // Вызываем метод clean() и ожидаемый результат
+        // Call the clean() method and expect the result
         $cleanedRecord = $this->csvAnalyzer->clean($record);
 
-        // Проверяем ожидаемый результат после очистки данных
+        // Check expected result after data cleaning
         $this->assertEquals(['P0090', '10', 'Description', null], $cleanedRecord);
     }
 
-    // Дополнительные тесты, включая обработку исключений, фильтрацию продуктов и т. д.
+    // Additional tests including exception handling, product filtering, etc.
 
-    // Вспомогательный метод для создания временного CSV файла
+    /**
+     * Helper method to create a temporary CSV file.
+     *
+     * @param string $fileName
+     * @param string $headers
+     * @param array $data
+     * @return string
+     */
     private function createCsvFile($fileName, $headers, $data)
     {
         $csvFilePath = storage_path('app/' . $fileName);
         
-        // Записываем заголовки CSV
+        // Write CSV headers
         file_put_contents($csvFilePath, $headers . PHP_EOL);
 
-        // Записываем данные CSV
+        // Write CSV data
         foreach ($data as $row) {
             file_put_contents($csvFilePath, implode(',', $row) . PHP_EOL, FILE_APPEND);
         }
